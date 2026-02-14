@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animated Parity Lab</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --secondary: #a29bfe;
+            --success: #00b894;
+            --danger: #d63031;
+            --wire: #dfe6e9;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #1e1e2f, #2d3436);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            color: #fff;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(15px);
+            padding: 30px;
+            border-radius: 25px;
+            border: 1px solid rgba(255,255,255,0.1);
+            width: 95%;
+            max-width: 850px;
+            text-align: center;
+        }
+
+        .input-group input {
+            padding: 12px;
+            font-size: 18px;
+            border-radius: 30px;
+            border: 2px solid #444;
+            text-align: center;
+            letter-spacing: 5px;
+            width: 150px;
+            background: #2d3436;
+            color: #fff;
+            outline: none;
+            transition: 0.3s;
+        }
+        .input-group input:focus { border-color: var(--primary); }
+
+        button {
+            padding: 12px 30px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 15px;
+            transition: 0.3s;
+        }
+        button:hover { background: #5849c4; transform: scale(1.05); }
+
+        .circuit-board {
+            background: #0f0f1a;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 25px 0;
+            border: 2px solid #333;
+            overflow-x: auto; /* ছোট স্ক্রিনে স্ক্রল হবে */
+        }
+
+        .gate-svg { display: block; margin: auto; min-width: 500px; }
+
+        .pulse {
+            stroke-dasharray: 10;
+            animation: dash 1s linear infinite;
+        }
+
+        @keyframes dash { to { stroke-dashoffset: -20; } }
+
+        .box {
+            width: 55px;
+            height: 55px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            border-radius: 12px;
+            background: #34495e;
+            cursor: pointer;
+            transition: 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .data-bit { border-color: var(--secondary); }
+        .parity-bit { border-color: #fbc02d; color: #fbc02d; font-size: 20px; }
+        .error-bit { background: var(--danger) !important; box-shadow: 0 0 15px var(--danger); border-color: #fff; }
+        .success-bit { background: var(--success) !important; box-shadow: 0 0 15px var(--success); }
+
+        .bit-row { display: flex; justify-content: center; gap: 15px; margin: 20px 0; flex-wrap: wrap; }
+        .label { font-size: 10px; color: #aaa; margin-bottom: 2px; display: block; text-transform: uppercase; }
+
+        .status-badge {
+            padding: 12px 35px;
+            border-radius: 30px;
+            font-weight: bold;
+            margin-top: 10px;
+            display: inline-block;
+            transition: 0.5s;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Animated Parity Logic Lab</h2>
+    <div class="input-group">
+        <input type="text" id="bitsInput" maxlength="4" placeholder="1011" oninput="this.value=this.value.replace(/[^0-1]/g,'')">
+    </div>
+    <button onclick="initLab()">Initialize Circuit</button>
+
+    <div id="mainDisplay" style="display:none;">
+        <div class="circuit-board">
+            <h4 style="color:var(--secondary); margin-top:0;">Sender Logic Output</h4>
+            <svg width="600" height="150" class="gate-svg" id="gateSvg"></svg>
+        </div>
+
+        <h4 style="margin-bottom: 5px;">Receiver & Error Testing</h4>
+        <p style="font-size: 12px; color: #ccc;">Click on any bit to simulate transmission error</p>
+        <div class="bit-row" id="receiverRow"></div>
+        <div id="statusBadge" class="status-badge"></div>
+    </div>
+</div>
+
+<script>
+    let data = []; 
+    let currentPBit = 0; 
+
+    function initLab() {
+        const val = document.getElementById('bitsInput').value;
+        if(val.length < 3) return alert("কমপক্ষে ৩ বা ৪ টি বিট ইনপুট দিন!");
+        
+        data = val.split('').map(Number);
+        
+        // রিসেট এবং নতুন প্যারিটি ক্যালকুলেশন
+        const ones = data.filter(x => x === 1).length;
+        currentPBit = (ones % 2 === 0) ? 0 : 1;
+        
+        document.getElementById('mainDisplay').style.display = 'block';
+        refreshUI();
+    }
+
+    function drawCircuit(onesCount, genPBit) {
+        const svg = document.getElementById('gateSvg');
+        svg.innerHTML = '';
+        let xBase = 50;
+        
+        data.forEach((bit, i) => {
+            let color = bit ? '#6c5ce7' : '#444';
+            svg.innerHTML += `
+                <text x="${xBase}" y="20" fill="#fff" font-size="12">D${i+1}</text>
+                <circle cx="${xBase+10}" cy="40" r="15" fill="${color}" />
+                <text x="${xBase+6}" y="45" fill="white" font-size="14">${bit}</text>
+                <path d="M ${xBase+10} 55 L ${xBase+10} 90 L 250 90" stroke="${color}" fill="none" class="${bit?'pulse':''}" stroke-width="2"/>
+            `;
+            xBase += 60;
+        });
+
+        svg.innerHTML += `
+            <path d="M 250 70 Q 280 90 250 110 M 260 70 Q 290 90 260 110 L 320 90 Z" fill="none" stroke="var(--primary)" stroke-width="3"/>
+            <text x="270" y="95" fill="white" font-size="10">XOR</text>
+            <line x1="320" y1="90" x2="400" y2="90" stroke="#fbc02d" stroke-width="3" class="${genPBit?'pulse':''}"/>
+            <text x="410" y="95" fill="#fbc02d" font-weight="bold">Generated P = ${genPBit}</text>
+        `;
+    }
+
+    function refreshUI() {
+        const onesCount = data.filter(x => x === 1).length;
+        const autoPBit = (onesCount % 2 === 0) ? 0 : 1;
+        drawCircuit(onesCount, autoPBit);
+        renderReceiver();
+    }
+
+    function renderReceiver() {
+        const row = document.getElementById('receiverRow');
+        row.innerHTML = '';
+        
+        data.forEach((bit, i) => {
+            const div = document.createElement('div');
+            div.className = `box data-bit`;
+            div.innerHTML = `<div><span class="label">D${i+1}</span>${bit}</div>`;
+            div.onclick = () => {
+                data[i] = data[i] === 1 ? 0 : 1;
+                refreshUI();
+            };
+            row.appendChild(div);
+        });
+
+        const pDiv = document.createElement('div');
+        pDiv.className = `box parity-bit`;
+        pDiv.innerHTML = `<div><span class="label">P</span>${currentPBit}</div>`;
+        pDiv.onclick = () => {
+            currentPBit = currentPBit === 1 ? 0 : 1; 
+            refreshUI();
+        };
+        row.appendChild(pDiv);
+
+        checkStatus();
+    }
+
+    function checkStatus() {
+        const totalOnes = data.filter(x => x === 1).length + (currentPBit === 1 ? 1 : 0);
+        const badge = document.getElementById('statusBadge');
+        const boxes = document.querySelectorAll('.box');
+
+        if(totalOnes % 2 === 0) {
+            badge.innerText = "✅ STATUS: SECURE (EVEN PARITY)";
+            badge.style.background = "var(--success)";
+            boxes.forEach(b => { b.classList.add('success-bit'); b.classList.remove('error-bit'); });
+        } else {
+            badge.innerText = "❌ STATUS: PARITY ERROR DETECTED";
+            badge.style.background = "var(--danger)";
+            boxes.forEach(b => { b.classList.add('error-bit'); b.classList.remove('success-bit'); });
+        }
+    }
+</script>
+</body>
+</html>
